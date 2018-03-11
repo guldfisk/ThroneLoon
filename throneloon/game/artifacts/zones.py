@@ -3,23 +3,26 @@ import random
 
 from abc import abstractmethod
 from enum import Enum
+from itertools import chain
 
-from ordered_set import OrderedSet
-
-from eventtree.replaceevent import EventSession
+from eventtree.replaceevent import Event
 
 from throneloon.game.artifacts.observation import GameObserver
-from throneloon.game.artifacts.artifact import GameObject, GameArtifact
+from throneloon.game.artifacts.artifact import GameObject, IdSession
 
 
 class Zoneable(GameObject):
-	def __init__(self, session: EventSession):
-		super().__init__(session)
+	def __init__(self, session: IdSession, event: Event):
+		super().__init__(session, event)
 		self._zone = None #type: Zone
 
 	@property
 	def zone(self) -> 'Zone':
 		return self._zone
+
+	@property
+	def owner(self) -> 't.Optional[ZoneOwner]':
+		return self._zone.owner
 
 	@abstractmethod
 	def serialize(self, player: GameObserver) -> str:
@@ -33,35 +36,47 @@ class ZoneOwner(object):
 	def zones(self) -> 't.Set[Zone]':
 		pass
 
+	@property
+	def zoneables(self) -> t.Iterable[Zoneable]:
+		return chain(*self.zones)
+
 	def join(self, zone: 'Zone'):
 		self.zones.add(zone)
+
 
 class ZoneFacingMode(Enum):
 	FACE_DOWN = 'face_down'
 	FACE_UP = 'face_up'
 	STACK = 'stack'
 
-	# def default_face_up(self) -> bool:
-	# 	return not self == ZoneFacingMode.FACE_DOWN
 
-class Zone(GameObject):
+T = t.TypeVar('T', bound=Zoneable)
+
+
+class Zone(t.Generic[T], GameObject):
 	def __init__(
 		self,
-		session: EventSession,
+		session: IdSession,
+		event: Event,
 		owner: ZoneOwner = None,
+		name: str = None,
 		facing_mode: ZoneFacingMode = ZoneFacingMode.FACE_DOWN,
 		owner_see_face_down: bool = False,
 		ordered: bool = True,
 	):
-		super().__init__(session)
+		super().__init__(session, event)
 		self._owner = owner #type: ZoneOwner
+
+		self.name = name
+
 		if self._owner is not None:
 			self._owner.join(self)
+
 		self._facing_mode = facing_mode
 		self._owner_see_face_down = owner_see_face_down
 		self._ordered = ordered
 
-		self._zoneables = [] #type: t.List[Zoneable]
+		self._zoneables = [] #type: t.List[T]
 
 	@property
 	def owner(self) -> t.Optional[ZoneOwner]:
@@ -79,10 +94,10 @@ class Zone(GameObject):
 	def ordered(self) -> bool:
 		return self._ordered
 
-	def leave(self, zoneable: Zoneable) -> None:
+	def leave(self, zoneable: T) -> None:
 		self._zoneables.remove(zoneable)
 
-	def join(self, zoneable: Zoneable, index: t.Optional[int] = None):
+	def join(self, zoneable: T, index: t.Optional[int] = None) -> None:
 		if zoneable.zone is not None:
 			zoneable.zone.leave(zoneable)
 		zoneable._zone = self
@@ -91,20 +106,34 @@ class Zone(GameObject):
 		else:
 			self._zoneables.insert(index, zoneable)
 
-	def shuffle(self) -> None:
-		random.shuffle(self._zoneables)
+	def shuffle(self, to: t.Optional[int] = None) -> None:
+		if to is None:
+			random.shuffle(self._zoneables)
+		else:
+			self._zoneables[:to] = random.sample(
+				self._zoneables[:to],
+				to if to >= 0 else len(self._zoneables) + to
+			)
 
 	def serialize(self, observer: GameObserver) -> str:
 		return super().serialize(observer)
 
-	def __iter__(self):
+	def __iter__(self) -> t.Iterable[T]:
 		return self._zoneables.__iter__()
 
-	def __contains__(self, item):
+	def __contains__(self, item: T) -> bool:
 		return self._zoneables.__contains__(item)
 
 	def __getitem__(self, index):
 		return self._zoneables.__getitem__(index)
 
-	def __len__(self):
+	def __len__(self) -> int:
 		return self._zoneables.__len__()
+
+	def __repr__(self) -> str:
+		return '{}({}, {})'.format(
+			self.__class__.__name__,
+			self.name,
+			self.owner,
+		)
+

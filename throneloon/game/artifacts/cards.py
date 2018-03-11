@@ -5,21 +5,22 @@ from eventtree.replaceevent import EventSession, Event
 
 from throneloon.game.artifacts.observation import GameObserver
 from throneloon.game.artifacts.artifact import GameArtifact
-from throneloon.game.artifacts.zones import Zoneable, ZoneOwner
-from throneloon.game.artifacts.kingdomcomponents import Pile
+from throneloon.game.artifacts.zones import Zoneable, ZoneOwner, IdSession, Zone
+from throneloon.game.artifacts.victory import VictoryValuable
 from throneloon.game.values.cardtypes import TypeLine
 from throneloon.game.values.currency import Price
 
 
-class Card(GameArtifact, metaclass=ABCMeta):
+class Card(GameArtifact, VictoryValuable, metaclass=ABCMeta):
 	name = 'abstract_base_card'
 
 	def __init__(
 		self,
 		session: EventSession,
-		cardboard: 'Cardboard'
+		cardboard: 'Cardboard',
+		event: Event,
 	):
-		super().__init__(session)
+		super().__init__(session, event)
 		self._cardboard = cardboard
 
 		self._price = None #type: Price
@@ -37,41 +38,56 @@ class Card(GameArtifact, metaclass=ABCMeta):
 	def type_line(self) -> TypeLine:
 		return self._type_line
 
+	@property
+	def vp_value(self) -> int:
+		return 0
+
+	def need_tre(self, event: Event) -> bool:
+		return False
+
 	def on_play(self, event: Event):
 		pass
 
-	def on_game_end(self, event: Event):
+	def attack(self, event: Event):
 		pass
 
 
-class Cardboard(Zoneable):
+class Cardboard(Zoneable, VictoryValuable):
+
 	def __init__(
 		self,
-		session: EventSession,
+		session: IdSession,
 		card_type: t.Type[Card],
-		origin_pile: 'Pile' = None,
+		event: Event,
+		origin_zone: Zone = None,
 		face_up: bool = True,
 	):
-		super().__init__(session)
+		super().__init__(session, event)
 		self._printed_card_type = card_type
-		self._origin_pile = origin_pile
+		self._origin_zone = origin_zone
 		self._face_up = face_up
 
-		self._card = card_type(session, self)
+		self._card = card_type(session, self, event)
 
 		self.id_map = None #type: t.Dict[GameObserver, t.Optional[str]]
+
+		self._attachments = [] #type: t.List[Cardboard]
 
 	@property
 	def printed_card_type(self) -> t.Type[Card]:
 		return self._printed_card_type
 
 	@property
-	def origin_pile(self) -> 't.Optional[Pile]':
-		return self._origin_pile
+	def origin_zone(self) -> 't.Optional[Zone]':
+		return self._origin_zone
 
 	@property
 	def card(self) -> Card:
 		return self._card
+
+	@card.setter
+	def card(self, card: Card) -> None:
+		self._card = card
 
 	@property
 	def name(self):
@@ -89,10 +105,15 @@ class Cardboard(Zoneable):
 	def owner(self) -> t.Optional[ZoneOwner]:
 		return self._zone.owner
 
+	@property
+	def attachments(self) -> 't.List[Cardboard]':
+		return self._attachments
+
 	def visible(self, player) -> bool:
 		return (
 			self._face_up
 			or player == self._zone.owner and self._zone.owner_see_face_down
+			or self in player.peeking
 		)
 
 	def flip(self) -> bool:
@@ -107,11 +128,18 @@ class Cardboard(Zoneable):
 	def type_line(self) -> TypeLine:
 		return self._card.type_line
 
+	@property
+	def vp_value(self) -> int:
+		return self._card.vp_value
+
 	def on_play(self, event: Event):
 		self._card.on_play(event)
 
-	def on_game_end(self, event: Event):
-		self._card.on_game_end(event)
+	def attack(self, event: Event):
+		self._card.attack(event)
+
+	def need_tre(self, event: Event) -> bool:
+		return self._card.need_tre(event)
 
 	def serialize(self, observer: GameObserver) -> str:
 		return super().serialize(observer)
@@ -119,6 +147,11 @@ class Cardboard(Zoneable):
 	def __repr__(self):
 		return '{}({}, {})'.format(
 			self.__class__.__name__,
-			self.name,
+			self.name
+			if self.name == self.printed_card_type.name else
+			'{}({})'.format(
+				self.printed_card_type.name,
+				self.name,
+			),
 			id(self),
 		)

@@ -83,6 +83,13 @@ class CurrencyValue(object):
 			self.debt_value + other.debt_value,
 		)
 
+	def __neg__(self):
+		return CurrencyValue(
+			-self.coin_value,
+			-self.potion_value,
+			-self.debt_value,
+		)
+
 	def __sub__(self, other):
 		return CurrencyValue(
 			self.coin_value - other.coin_value,
@@ -91,8 +98,7 @@ class CurrencyValue(object):
 		)
 
 	def __repr__(self):
-		return '{}(c: {}, p: {}, d: {})'.format(
-			self.__class__.__name__,
+		return '(c: {}, p: {}, d: {})'.format(
 			self.coin_value,
 			self.potion_value,
 			self.debt_value

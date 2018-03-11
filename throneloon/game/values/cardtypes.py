@@ -39,7 +39,7 @@ class TypeLine(object):
 
 	def __add__(self, other):
 		if isinstance(other, CardType):
-			return CardType(list(self._card_types)+[other])
+			return TypeLine(list(self._card_types)+[other])
 		elif isinstance(other, self.__class__):
 			return TypeLine(list(self._card_types) + list(other._card_types))
 		raise TypeError()
