@@ -10,6 +10,8 @@ from throneloon.game.artifacts.kingdomcomponents import Pile, BuyableEvent, Land
 from throneloon.game.artifacts.observation import Serializeable, GameObserver
 from throneloon.game.artifacts.players import Player, AdditionalOptionTreatment
 from throneloon.game.artifacts.zones import Zone, Zoneable, ZoneFacingMode
+from throneloon.game.artifacts.deck import Deck
+from throneloon.game.artifacts.tokens import Token, CoinToken
 from throneloon.game.game import Game
 from throneloon.game.idprovide import IdProvider
 from throneloon.game.setup.setupinfo import SetupInfo
@@ -529,6 +531,8 @@ class Setup(GameEvent):
 			for _ in range(self.info.num_players)
 		)
 
+		self.game.interface.bind_players(self.game.players)
+
 		for key, value in self.basic_supply.items():
 			self.spawn_tree(CreatePile, pile_type=value)
 
@@ -694,6 +698,16 @@ class TreasurePhase(GameEvent):
 			)
 			if isinstance(picked, Cardboard):
 				self.spawn_tree(CastCardboard, target=picked)
+
+
+class SpentCoinTokens(GameEvent):
+
+	def check(self, **kwargs):
+		if not any(isinstance(token, CoinToken) for token in self.player.tokens):
+			raise EventCheckException()
+
+	def payload(self, **kwargs):
+		amount = len([token for token in self.player.tokens if isinstance(token, CoinToken)])
 
 
 class BuyPhase(GameEvent):
@@ -927,6 +941,17 @@ class ShuffleZone(GameEvent):
 
 
 class Reshuffle(GameEvent):
+
+	@property
+	def deck(self) -> Deck:
+		return self._values['deck']
+
+	@deck.setter
+	def deck(self, deck: Deck) -> None:
+		self._values['deck'] = deck
+
+	def setup(self, **kwargs):
+		self._values.setdefault('deck', self.player.deck)
 
 	def payload(self, **kwargs):
 		if self.player.library:

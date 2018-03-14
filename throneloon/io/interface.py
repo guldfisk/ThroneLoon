@@ -7,30 +7,37 @@ from eventtree.replaceevent import Event, Condition
 from throneloon.game.artifacts.observation import GameObserver
 from throneloon.game.artifacts.artifact import GameArtifact
 
+io_option = t.Union[GameArtifact, Condition, str]
+io_options = t.Iterable[io_option]
+io_additional_options = t.Optional[t.Dict[io_option, t.Optional[str]]]
 
 class IOInterface(object, metaclass=ABCMeta):
+
+	@abstractmethod
+	def bind_players(self, players: t.List[GameObserver]) -> None:
+		pass
 
 	@abstractmethod
 	def select_option(
 		self,
 		player: GameObserver,
-		options: t.Iterable[t.Union[GameArtifact, str, Condition]],
+		options: io_options,
 		optional: bool = False,
-		additional_options: t.Optional[t.Dict[t.Union[GameArtifact, str, Condition], t.Optional[str]]] = None,
+		additional_options: io_additional_options = None,
 		reason: t.Optional[str] = None,
-	) -> t.Union[GameArtifact, str, Condition]:
+	) -> io_option:
 		pass
 
 	@abstractmethod
 	def select_options(
 		self,
 		player: GameObserver,
-		options: t.Iterable[t.Union[GameArtifact, str, Condition]],
+		options: io_options,
 		minimum: t.Optional[int] = 1,
 		maximum: t.Optional[int] = None,
-		additional_options: t.Optional[t.Dict[t.Union[GameArtifact, str, Condition], t.Optional[str]]] = None,
+		additional_options: io_additional_options = None,
 		reason: t.Optional[str] = None,
-	) -> t.Union[t.List[t.Union[GameArtifact, str]], t.Union[GameArtifact, str, Condition]]:
+	) -> t.List[io_option]:
 		pass
 
 	@abstractmethod

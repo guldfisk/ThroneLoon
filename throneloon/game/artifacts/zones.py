@@ -50,10 +50,11 @@ class ZoneFacingMode(Enum):
 	STACK = 'stack'
 
 
-T = t.TypeVar('T', bound=Zoneable)
+Z = t.TypeVar('T', covariant=True, bound=Zoneable)
 
 
-class Zone(t.Generic[T], GameObject):
+class Zone(t.Generic[Z], GameObject):
+
 	def __init__(
 		self,
 		session: IdSession,
@@ -76,7 +77,7 @@ class Zone(t.Generic[T], GameObject):
 		self._owner_see_face_down = owner_see_face_down
 		self._ordered = ordered
 
-		self._zoneables = [] #type: t.List[T]
+		self._zoneables = [] #type: t.List[Z]
 
 	@property
 	def owner(self) -> t.Optional[ZoneOwner]:
@@ -94,10 +95,10 @@ class Zone(t.Generic[T], GameObject):
 	def ordered(self) -> bool:
 		return self._ordered
 
-	def leave(self, zoneable: T) -> None:
+	def leave(self, zoneable: Z) -> None:
 		self._zoneables.remove(zoneable)
 
-	def join(self, zoneable: T, index: t.Optional[int] = None) -> None:
+	def join(self, zoneable: Z, index: t.Optional[int] = None) -> None:
 		if zoneable.zone is not None:
 			zoneable.zone.leave(zoneable)
 		zoneable._zone = self
@@ -118,10 +119,10 @@ class Zone(t.Generic[T], GameObject):
 	def serialize(self, observer: GameObserver) -> str:
 		return super().serialize(observer)
 
-	def __iter__(self) -> t.Iterable[T]:
+	def __iter__(self) -> t.Iterable[Z]:
 		return self._zoneables.__iter__()
 
-	def __contains__(self, item: T) -> bool:
+	def __contains__(self, item: Z) -> bool:
 		return self._zoneables.__contains__(item)
 
 	def __getitem__(self, index):

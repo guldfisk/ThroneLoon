@@ -14,4 +14,5 @@ class Token(Zoneable, VictoryValuable):
 		return 0
 
 
-
+class CoinToken(Token):
+	pass

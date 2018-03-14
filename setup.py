@@ -6,5 +6,6 @@ setup(
 	packages=['throneloon'],
 	install_requires=[
 		'frozendict',
+		'ordered_dict',
 	]
 )

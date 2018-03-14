@@ -4,8 +4,9 @@ import re
 from eventtree.replaceevent import Event, Condition
 
 from throneloon.game.artifacts.players import Player
+from throneloon.game.artifacts.observation import GameObserver
 from throneloon.game.artifacts.artifact import GameArtifact
-from throneloon.io.interface import IOInterface
+from throneloon.io.interface import IOInterface, io_additional_options, io_option, io_options
 
 
 class DummyInterface(IOInterface):
@@ -22,14 +23,17 @@ class DummyInterface(IOInterface):
 		else:
 			return option
 
+	def bind_players(self, players: t.List[GameObserver]):
+		pass
+
 	def select_option(
 		self,
 		player: Player,
-		options: t.Iterable[t.Union[GameArtifact, str, Condition]],
+		options: io_options,
 		optional: bool = False,
-		additional_options: t.Optional[t.Dict[t.Union[GameArtifact, str, Condition], t.Optional[str]]] = None,
+		additional_options: io_additional_options = None,
 		reason: t.Optional[str] = None,
-	) -> t.Union[GameArtifact, str, Condition]:
+	) -> io_option:
 		options = self.select_options(
 			player = player,
 			options = options,
@@ -43,12 +47,12 @@ class DummyInterface(IOInterface):
 	def select_options(
 		self,
 		player: Player,
-		options: t.Iterable[t.Union[GameArtifact, str, Condition]],
+		options: io_options,
 		minimum: t.Optional[int] = 1,
 		maximum: t.Optional[int] = None,
-		additional_options: t.Optional[t.Dict[t.Union[GameArtifact, str, Condition], t.Optional[str]]] = None,
+		additional_options: io_additional_options= None,
 		reason: t.Optional[str] = None,
-	) -> t.Union[t.List[t.Union[GameArtifact, str, Condition]], t.Union[GameArtifact, str]]:
+	) -> t.List[io_option]:
 
 		_additional_options_in = additional_options if additional_options is not None else {}
 

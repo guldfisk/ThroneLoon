@@ -15,9 +15,11 @@ from throneloon.game.artifacts.zones import Zone, ZoneOwner, ZoneFacingMode, Zon
 from throneloon.game.artifacts.cards import Cardboard
 from throneloon.game.artifacts.tokens import Token
 from throneloon.game.artifacts.states import State
+from throneloon.game.artifacts.deck import Deck
 from throneloon.game.values.currency import CurrencyValue
-from throneloon.io.interface import IOInterface
+from throneloon.io.interface import IOInterface, io_options, io_option
 
+picking_options = t.Union[Zone, t.Iterable[str], t.Callable[[], io_options]]
 
 class AdditionalOption(object):
 
@@ -52,10 +54,10 @@ class OptionPicker(object):
 
 	def order_options(
 		self,
-		options: t.Union[Zone, t.Iterable[str], t.Callable[[], t.Iterable[t.Union[GameArtifact, str, Condition]]]],
+		options: picking_options,
 		add_opp_treatment: AdditionalOptionTreatment = AdditionalOptionTreatment.RESOLVE,
 		reason: t.Optional[str] = None,
-	) -> t.List[t.Union[GameArtifact, str, Condition]]:
+	) -> t.List[io_option]:
 		return self.pick_options(
 			options = options,
 			minimum = None,
@@ -66,11 +68,11 @@ class OptionPicker(object):
 
 	def pick_option(
 		self,
-		options: t.Union[Zone, t.Iterable[str], t.Callable[[], t.Iterable[t.Union[GameArtifact, str, Condition]]]],
+		options: picking_options,
 		optional: bool = False,
 		add_opp_treatment: AdditionalOptionTreatment = AdditionalOptionTreatment.RESOLVE,
 		reason: t.Optional[str] = None
-	) -> t.Union[GameArtifact, str, Condition, None]:
+	) -> t.Optional[io_option]:
 		options = self.pick_options(
 			options = options,
 			minimum = 0 if optional else 1,
@@ -82,12 +84,12 @@ class OptionPicker(object):
 
 	def pick_options(
 		self,
-		options: t.Union[Zone, t.Iterable[str], t.Callable[[], t.Iterable[t.Union[GameArtifact, str, Condition]]]],
+		options: picking_options,
 		minimum: t.Optional[int] = 1,
 		maximum: t.Optional[int] = None,
 		add_opp_treatment: AdditionalOptionTreatment = AdditionalOptionTreatment.RESOLVE,
 		reason: t.Optional[str] = None,
-	) -> t.List[t.Union[GameArtifact, str, Condition]]:
+	) -> t.List[io_option]:
 
 		end_additional_options = 'End additional actions'
 
@@ -163,15 +165,12 @@ class Player(GameObject, ZoneOwner, GameObserver):
 
 		self._mats = {} #type: t.Dict[str, Mat]
 
-		self._library = Zone(
+		self._deck = Deck(
 			session = session,
 			event = event,
 			owner = self,
-			name = 'library',
-			facing_mode = ZoneFacingMode.FACE_DOWN,
-			owner_see_face_down = False,
-			ordered = True,
-		) #type: Zone[Cardboard]
+		) #type: Deck
+
 		self._hand = Zone(
 			session = session,
 			event = event,
@@ -186,15 +185,6 @@ class Player(GameObject, ZoneOwner, GameObserver):
 			event = event,
 			owner = self,
 			name = 'battlefield',
-			facing_mode = ZoneFacingMode.FACE_UP,
-			owner_see_face_down = False,
-			ordered = True,
-		) #type: Zone[Cardboard]
-		self._graveyard = Zone(
-			session = session,
-			event = event,
-			owner = self,
-			name = 'graveyard',
 			facing_mode = ZoneFacingMode.FACE_UP,
 			owner_see_face_down = False,
 			ordered = True,
@@ -226,6 +216,10 @@ class Player(GameObject, ZoneOwner, GameObserver):
 		return self._zones
 
 	@property
+	def deck(self) -> Deck:
+		return self._deck
+
+	@property
 	def currency(self) -> CurrencyValue:
 		return self._currency
 
@@ -239,7 +233,7 @@ class Player(GameObject, ZoneOwner, GameObserver):
 
 	@property
 	def library(self) -> Zone[Cardboard]:
-		return self._library
+		return self._deck.library
 
 	@property
 	def hand(self) -> Zone[Cardboard]:
@@ -251,7 +245,7 @@ class Player(GameObject, ZoneOwner, GameObserver):
 
 	@property
 	def graveyard(self) -> Zone[Cardboard]:
-		return self._graveyard
+		return self._deck.graveyard
 
 	@property
 	def tokens(self) -> Zone[Token]:
@@ -263,10 +257,10 @@ class Player(GameObject, ZoneOwner, GameObserver):
 
 	def order_options(
 		self,
-		options: t.Union[Zone, t.Iterable[str], t.Callable[[], t.Iterable[t.Union[GameArtifact, str, Condition]]]],
+		options: picking_options,
 		add_opp_treatment: AdditionalOptionTreatment = AdditionalOptionTreatment.RESOLVE,
 		reason: t.Optional[str] = None,
-	) -> t.List[t.Union[GameArtifact, str, Condition]]:
+	) -> t.List[io_option]:
 		return self._picker.order_options(
 			options = options,
 			add_opp_treatment = add_opp_treatment,
@@ -275,11 +269,11 @@ class Player(GameObject, ZoneOwner, GameObserver):
 
 	def pick_option(
 		self,
-		options: t.Union[Zone, t.Iterable[str], t.Callable[[], t.Iterable[t.Union[GameArtifact, str, Condition]]]],
+		options: picking_options,
 		optional: bool = False,
 		add_opp_treatment: AdditionalOptionTreatment = AdditionalOptionTreatment.RESOLVE,
 		reason: t.Optional[str] = None
-	) -> t.Union[str, GameArtifact, Condition, None]:
+	) -> t.Optional[io_option]:
 		return self._picker.pick_option(
 			options = options,
 			optional = optional,
@@ -289,12 +283,12 @@ class Player(GameObject, ZoneOwner, GameObserver):
 
 	def pick_options(
 		self,
-		options: t.Union[Zone, t.Iterable[str], t.Callable[[], t.Iterable[t.Union[GameArtifact, str, Condition]]]],
+		options: picking_options,
 		minimum: int = 1,
 		maximum: t.Optional[int] = None,
 		add_opp_treatment: AdditionalOptionTreatment = AdditionalOptionTreatment.RESOLVE,
 		reason: t.Optional[str] = None,
-	) -> t.List[t.Union[GameArtifact, str, Condition]]:
+	) -> t.List[io_option]:
 		return self._picker.pick_options(
 			options = options,
 			minimum = minimum,
