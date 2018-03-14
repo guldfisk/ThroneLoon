@@ -17,5 +17,7 @@ setup(
 	package_data={'': extra_files},
 	install_requires=[
 		'frozendict',
+		'weakreflist',
+		'ordered_set'
 	]
 )
