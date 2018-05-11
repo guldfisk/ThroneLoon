@@ -2,6 +2,7 @@ import typing as t
 
 from throneloon.game.setup.kingdominfo import KingdomInfo
 
+
 class SetupInfo(object):
 	def __init__(
 		self,

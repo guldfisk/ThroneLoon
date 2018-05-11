@@ -44,6 +44,8 @@ class Game(IdSession):
 		# self._boons = Zone(self, None, True, False, False)
 		# self._hexes = Zone(self, None, True, False, False)
 
+		self._event_counter = 0 #type: int
+
 	@property
 	def interface(self) -> IOInterface:
 		return self._interface
@@ -107,7 +109,14 @@ class Game(IdSession):
 
 	def log_event(self, event: Event) -> None:
 		self._event_stack.append(event)
-		self._interface.notify_event(event)
+		if self.turn_order:
+			for player in self.players:
+				self._interface.notify_event(event, player, True)
+
+	def event_finished(self, event: 'Event') -> None:
+		if self.turn_order:
+			for player in self.players:
+				self._interface.notify_event(event, player, False)
 
 	def resolve_reactions(self, event: Event, post: bool):
 		if not self.turn_order:

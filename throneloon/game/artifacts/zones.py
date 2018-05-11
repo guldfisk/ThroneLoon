@@ -7,8 +7,10 @@ from itertools import chain
 
 from eventtree.replaceevent import Event
 
-from throneloon.game.artifacts.observation import GameObserver
+from throneloon.game.artifacts.observation import GameObserver, serialization_values, Serializeable
 from throneloon.game.artifacts.artifact import GameObject, IdSession
+
+from throneloon.utils.containers.frozendict import FrozenDict
 
 
 class Zoneable(GameObject):
@@ -25,11 +27,11 @@ class Zoneable(GameObject):
 		return self._zone.owner
 
 	@abstractmethod
-	def serialize(self, player: GameObserver) -> str:
+	def serialize(self, player: GameObserver) -> serialization_values:
 		return super().serialize(player)
 
 
-class ZoneOwner(object):
+class ZoneOwner(Serializeable):
 
 	@property
 	@abstractmethod
@@ -50,7 +52,7 @@ class ZoneFacingMode(Enum):
 	STACK = 'stack'
 
 
-Z = t.TypeVar('T', covariant=True, bound=Zoneable)
+Z = t.TypeVar('Z', covariant=True, bound=Zoneable)
 
 
 class Zone(t.Generic[Z], GameObject):
@@ -68,7 +70,7 @@ class Zone(t.Generic[Z], GameObject):
 		super().__init__(session, event)
 		self._owner = owner #type: ZoneOwner
 
-		self.name = name
+		self._name = name
 
 		if self._owner is not None:
 			self._owner.join(self)
@@ -82,6 +84,10 @@ class Zone(t.Generic[Z], GameObject):
 	@property
 	def owner(self) -> t.Optional[ZoneOwner]:
 		return self._owner
+
+	@property
+	def name(self) -> str:
+		return self._name
 
 	@property
 	def facing_mode(self) -> ZoneFacingMode:
@@ -116,8 +122,14 @@ class Zone(t.Generic[Z], GameObject):
 				to if to >= 0 else len(self._zoneables) + to
 			)
 
-	def serialize(self, observer: GameObserver) -> str:
-		return super().serialize(observer)
+	def serialize(self, player: GameObserver) -> serialization_values:
+		return super().serialize(player) + FrozenDict(
+			{
+				'name': self._name,
+				'owner': self._owner,
+				'ordered': self._ordered,
+			}
+		)
 
 	def __iter__(self) -> t.Iterable[Z]:
 		return self._zoneables.__iter__()

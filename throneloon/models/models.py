@@ -1,20 +1,11 @@
 
-from frozendict import frozendict
-
 from throneloon.models import piles
 from throneloon.models import buyableevents as bevs
 
-
-class _FrozenDict(frozendict):
-
-	def __add__(self, other):
-		d = {}
-		d.update(self)
-		d.update(other)
-		return _FrozenDict(d)
+from throneloon.utils.containers.frozendict import FrozenDict
 
 
-BASIC_SUPPLY = _FrozenDict(
+BASIC_SUPPLY = FrozenDict(
 	{
 		'Copper': piles.CopperPile,
 		'Silver': piles.SilverPile,
@@ -26,7 +17,7 @@ BASIC_SUPPLY = _FrozenDict(
 	}
 )
 
-BASE_SET = _FrozenDict(
+BASE_SET = FrozenDict(
 	{
 		'Village': piles.VillagePile,
 		'Cellar': piles.CellarPile,
@@ -37,38 +28,38 @@ BASE_SET = _FrozenDict(
 	}
 )
 
-PROSPERITY = _FrozenDict(
+PROSPERITY = FrozenDict(
 	{
 		'Watchtower': piles.WatchtowerPile,
 		'Wharf': piles.WharfPile,
 	}
 )
 
-HINTERLANDS = _FrozenDict(
+HINTERLANDS = FrozenDict(
 	{
 		'Trader': piles.TraderPile,
 	}
 )
 
-INTRIGUE = _FrozenDict(
+INTRIGUE = FrozenDict(
 	{
 		'Secret Chamber': piles.SecretChamberPile,
 	}
 )
 
-CORNUCOPIA = _FrozenDict(
+CORNUCOPIA = FrozenDict(
 	{
 		'Hamlet': piles.HamletPile,
 	}
 )
 
-DARK_AGES = _FrozenDict(
+DARK_AGES = FrozenDict(
 	{
 		'Band of Misfits': piles.BandOfMisfitsPile,
 	}
 )
 
-NOCTURNE = _FrozenDict(
+NOCTURNE = FrozenDict(
 	{
 		'Necromancer': piles.NecromancerPile,
 		"Devil's Workshop": piles.DevilsWorkshopPile,
@@ -77,7 +68,7 @@ NOCTURNE = _FrozenDict(
 )
 
 
-ADVENTURES_BUYABLE_EVENTS = _FrozenDict(
+ADVENTURES_BUYABLE_EVENTS = FrozenDict(
 	{
 		event.name: event for event in (
 			bevs.Expedition,

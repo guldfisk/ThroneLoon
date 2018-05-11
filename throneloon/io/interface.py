@@ -4,12 +4,16 @@ from abc import ABCMeta, abstractmethod
 
 from eventtree.replaceevent import Event, Condition
 
-from throneloon.game.artifacts.observation import GameObserver
-from throneloon.game.artifacts.artifact import GameArtifact
+from throneloon.game.artifacts.observation import GameObserver, Serializeable
+from throneloon.game.artifacts.artifact import GameObject
 
-io_option = t.Union[GameArtifact, Condition, str]
+from throneloon.utils.containers.frozendict import FrozenDict
+
+
+io_option = t.Union[GameObject, Condition, str]
 io_options = t.Iterable[io_option]
 io_additional_options = t.Optional[t.Dict[io_option, t.Optional[str]]]
+
 
 class IOInterface(object, metaclass=ABCMeta):
 
@@ -41,5 +45,25 @@ class IOInterface(object, metaclass=ABCMeta):
 		pass
 
 	@abstractmethod
-	def notify_event(self, event: Event) -> None:
+	def notify_event(self, event: Event, player: GameObserver, first: bool) -> None:
 		pass
+
+
+def serialize_event(event: Event, player: GameObserver):
+	return FrozenDict(
+		{
+			'type': 'event',
+			'event_type': event.__class__.__name__,
+			**(
+				{
+					key: (
+						dict(value.serialize(player))
+						if isinstance(value, Serializeable)
+						else value
+					)
+					for key, value in
+					event.values.items()
+				}
+			)
+		}
+	)

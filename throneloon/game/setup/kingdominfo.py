@@ -4,6 +4,7 @@ from ordered_set import OrderedSet
 
 from collections import OrderedDict
 
+
 class KingdomComponentInfo(object):
 	def __init__(
 		self,

@@ -6,7 +6,7 @@ from weakreflist import WeakList
 
 from eventtree.replaceevent import Attributed, EventSession, Condition, Event
 
-from throneloon.game.artifacts.observation import Serializeable, GameObserver
+from throneloon.game.artifacts.observation import Serializeable, GameObserver, serialization_values
 from throneloon.game.idprovide import IdProviderInterface
 
 
@@ -35,7 +35,10 @@ class GameArtifact(Attributed):
 
 
 class IdSession(EventSession, IdProviderInterface):
-	pass
+
+	@abstractmethod
+	def get_id(self) -> t.ByteString:
+		pass
 
 
 class GameObject(GameArtifact, Serializeable):
@@ -47,6 +50,6 @@ class GameObject(GameArtifact, Serializeable):
 	def visible(self, observer: GameObserver) -> bool:
 		return True
 
-	@abstractmethod
-	def serialize(self, observer: GameObserver) -> str:
-		return super().serialize(observer)
+	def serialize(self, player: GameObserver) -> 'serialization_values':
+		return super().serialize(player)
+

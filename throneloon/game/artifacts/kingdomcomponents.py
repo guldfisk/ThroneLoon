@@ -7,17 +7,26 @@ from ordered_set import OrderedSet
 from eventtree.replaceevent import Event
 
 from throneloon.game.artifacts.artifact import GameObject, IdSession
-from throneloon.game.artifacts.observation import GameObserver
+from throneloon.game.artifacts.observation import GameObserver, serialization_values
 from throneloon.game.artifacts.zones import Zone, ZoneFacingMode, ZoneOwner, Zoneable
 from throneloon.game.artifacts.players import Player
 from throneloon.game.values.currency import Price
 
+from throneloon.utils.containers.frozendict import FrozenDict
 
 class KingdomComponent(GameObject, metaclass=ABCMeta):
+	name = 'Base Kingdom Component'
 
 	@abstractmethod
 	def setup(self, event: Event):
 		pass
+
+	def serialize(self, player: GameObserver) -> serialization_values:
+		return FrozenDict(
+			{
+				'name': self.name,
+			}
+		)
 
 
 class Pile(KingdomComponent, ZoneOwner):
@@ -62,11 +71,15 @@ class Pile(KingdomComponent, ZoneOwner):
 		else:
 			return None
 
+	def serialize(self, player: GameObserver) -> serialization_values:
+		return super().serialize(player) + FrozenDict(
+			{
+				'type': 'Pile',
+			}
+		)
+
 	def setup(self, event: Event):
 		pass
-
-	def serialize(self, observer: GameObserver) -> str:
-		return super().serialize(observer)
 
 	def __repr__(self) -> str:
 		return self.__class__.__name__
@@ -88,14 +101,19 @@ class BuyableEvent(KingdomComponent):
 	def on_buy(self, event: Event):
 		pass
 
+	def serialize(self, player: GameObserver) -> serialization_values:
+		return super().serialize(player) + FrozenDict(
+			{
+				'type': 'BuyableEvent',
+			}
+		)
+
 	def setup(self, event: Event):
 		pass
 
-	def serialize(self, observer: GameObserver) -> str:
-		return super().serialize(observer)
-
 
 class Landmark(KingdomComponent):
+	name = 'Base Landmark'
 
 	def vp_value(self, player: Player) -> int:
 		return 0
@@ -103,6 +121,9 @@ class Landmark(KingdomComponent):
 	def setup(self, event: Event):
 		pass
 
-	def serialize(self, observer: GameObserver) -> str:
-		return super().serialize(observer)
-
+	def serialize(self, player: GameObserver) -> serialization_values:
+		return super().serialize(player) + FrozenDict(
+			{
+				'type': 'Landmark',
+			}
+		)

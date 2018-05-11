@@ -1,25 +1,49 @@
 import typing as t
 import re
+import json
 
 from eventtree.replaceevent import Event, Condition
 
 from throneloon.game.artifacts.players import Player
 from throneloon.game.artifacts.observation import GameObserver
-from throneloon.game.artifacts.artifact import GameArtifact
-from throneloon.io.interface import IOInterface, io_additional_options, io_option, io_options
+from throneloon.game.artifacts.artifact import GameObject
+from throneloon.io.interface import IOInterface, io_additional_options, io_option, io_options, serialize_event
+from throneloon.game.gameevents import GameEvent
 
 
 class DummyInterface(IOInterface):
 
 	def __init__(self):
 		self._indentation_levels = {} #type: t.Dict[Event, int]
+		self._open_events = [] #type: t.List[Event]
 
 	@staticmethod
-	def _stringify(option: t.Union[GameArtifact, str, Condition]):
-		if isinstance(option, GameArtifact):
-			return option.name
+	def _stringify_game_object(game_object: GameObject, player: GameObserver) -> str:
+		d = {
+			key: (
+				value.serialize(player)['id']
+				if isinstance(value, GameObject) else
+				value
+			) for key, value in game_object.serialize(player).items()
+		}
+		_type = d.pop('type')
+		return '{}({})'.format(
+			_type,
+			d,
+		)
+
+	@staticmethod
+	def _stringify_condition(condition: Condition, player: GameObserver) -> str:
+		return 'Condition({})'.format(
+			condition.source,
+		)
+
+	@staticmethod
+	def _stringify(option: io_option, player: GameObserver):
+		if isinstance(option, GameObject):
+			return DummyInterface._stringify_game_object(option, player)
 		elif isinstance(option, Condition):
-			return option.source.name
+			return DummyInterface._stringify_condition(option, player)
 		else:
 			return option
 
@@ -59,7 +83,7 @@ class DummyInterface(IOInterface):
 		_options = list(options)
 
 		_additional_options = {
-			self._stringify(option): option
+			self._stringify(option, player): option
 			for option in _additional_options_in
 		}
 
@@ -80,7 +104,7 @@ class DummyInterface(IOInterface):
 				)
 				+', options: '
 				+ str(
-					[self._stringify(option) for option in _options]
+					[self._stringify(option, player) for option in _options]
 					+ (
 						[end_picks]
 						if len(picked) > _minimum else
@@ -92,7 +116,7 @@ class DummyInterface(IOInterface):
 						' additional options: '
 						+ str(
 							[
-								self._stringify(key)
+								self._stringify(key, player)
 								+ (
 									''
 									if value is None else
@@ -150,7 +174,7 @@ class DummyInterface(IOInterface):
 
 				if not force_add_op:
 					for i in range(len(_options)):
-						if pattern.match(self._stringify(_options[i])):
+						if pattern.match(self._stringify(_options[i], player)):
 							picked.append(_options.pop(i))
 							_looping = False
 							break
@@ -164,17 +188,30 @@ class DummyInterface(IOInterface):
 
 		return picked
 
-	def notify_event(self, event: Event) -> None:
+	def notify_event(self, event: Event, player: GameObserver, first: bool) -> None:
+		# if event.parent is None or event.parent not in self._indentation_levels:
+		# 	self._indentation_levels[event] = _indentation_level = 0
+		# else:
+		# 	self._indentation_levels[event] = _indentation_level = self._indentation_levels[event.parent] + 1
+		if first:
+			self._open_events.append(event)
 
-		if event.parent is None or event.parent not in self._indentation_levels:
-			self._indentation_levels[event] = _indentation_level = 0
-		else:
-			self._indentation_levels[event] = _indentation_level = self._indentation_levels[event.parent] + 1
-
-		print(
-			'|'+'-|'*_indentation_level+'{}: {}'.format(
-				event.__class__.__name__,
-				event.values,
+			print(
+				'|'+'-|'*len(self._open_events)+'{}'.format(
+					type(event).__name__,
+				)
 			)
+		else:
+			d = dict(serialize_event(event, player))
+			_type = d.pop('event_type')
 
-		)
+			print(
+				'|' + '-|' * len(self._open_events) + '{}({})'.format(
+					_type,
+					d,
+				)
+			)
+			try:
+				self._open_events.pop()
+			except IndexError:
+				pass

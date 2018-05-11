@@ -3,12 +3,14 @@ from abc import ABCMeta
 
 from eventtree.replaceevent import EventSession, Event
 
-from throneloon.game.artifacts.observation import GameObserver
+from throneloon.game.artifacts.observation import GameObserver, serialization_values
 from throneloon.game.artifacts.artifact import GameArtifact
 from throneloon.game.artifacts.zones import Zoneable, ZoneOwner, IdSession, Zone
 from throneloon.game.artifacts.victory import VictoryValuable
 from throneloon.game.values.cardtypes import TypeLine
 from throneloon.game.values.currency import Price
+
+from throneloon.utils.containers.frozendict import FrozenDict
 
 
 class Card(GameArtifact, VictoryValuable, metaclass=ABCMeta):
@@ -109,11 +111,11 @@ class Cardboard(Zoneable, VictoryValuable):
 	def attachments(self) -> 't.List[Cardboard]':
 		return self._attachments
 
-	def visible(self, player) -> bool:
+	def visible(self, observer: GameObserver) -> bool:
 		return (
 			self._face_up
-			or player == self._zone.owner and self._zone.owner_see_face_down
-			or self in player.peeking
+			or observer == self._zone.owner and self._zone.owner_see_face_down
+			or self in observer.peeking
 		)
 
 	def flip(self) -> bool:
@@ -141,8 +143,23 @@ class Cardboard(Zoneable, VictoryValuable):
 	def need_tre(self, event: Event) -> bool:
 		return self._card.need_tre(event)
 
-	def serialize(self, observer: GameObserver) -> str:
-		return super().serialize(observer)
+	def serialize(self, player: GameObserver) -> serialization_values:
+		return (
+			super().serialize(player) + FrozenDict(
+				{
+					'printed_card_type': self._printed_card_type.name,
+					'card_type': self._card.name,
+					'face_up': self._face_up,
+					'id': self.id_map[player],
+				}
+			) if self.visible(player) else
+			super().serialize(player) + FrozenDict(
+				{
+					'face_up': self._face_up,
+					'id': self.id_map[player],
+				}
+			)
+		)
 
 	def __repr__(self):
 		return '{}({}, {})'.format(

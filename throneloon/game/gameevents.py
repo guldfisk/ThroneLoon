@@ -7,7 +7,7 @@ from eventtree.replaceevent import Event, EventCheckException, Replacement, Even
 from throneloon.game.artifacts.turns import TurnOrder, Turn
 from throneloon.game.artifacts.cards import Cardboard, Card
 from throneloon.game.artifacts.kingdomcomponents import Pile, BuyableEvent, Landmark
-from throneloon.game.artifacts.observation import Serializeable, GameObserver
+from throneloon.game.artifacts.observation import Serializeable, GameObserver, serialization_values
 from throneloon.game.artifacts.players import Player, AdditionalOptionTreatment
 from throneloon.game.artifacts.zones import Zone, Zoneable, ZoneFacingMode
 from throneloon.game.artifacts.deck import Deck
@@ -18,8 +18,10 @@ from throneloon.game.setup.setupinfo import SetupInfo
 from throneloon.game.values.currency import CurrencyValue
 from throneloon.game.values.cardtypes import CardType, TypeLine
 
+from throneloon.utils.containers.frozendict import FrozenDict
 
-class GameEvent(Event, Serializeable):
+
+class GameEvent(Event):
 
 	@property
 	def game(self) -> Game:
@@ -33,8 +35,22 @@ class GameEvent(Event, Serializeable):
 	def player(self, player: Player) -> None:
 		self._values['player'] = player
 
-	def serialize(self, player: GameObserver) -> str:
-		return super().serialize(player)
+	def serialize(self, player: GameObserver) -> serialization_values:
+		return FrozenDict(
+			{
+				'type': 'event',
+				'event_type': self.__class__.__name__,
+				**{
+					key: (
+						value.serialize(player)
+						if isinstance(value, Serializeable)
+						else value
+					)
+					for key, value in
+					self._values.items()
+				}
+			}
+		)
 
 
 class CreateZoneable(GameEvent):
@@ -90,24 +106,15 @@ class CreateCardboard(GameEvent):
 		self._values.setdefault('face_up', None)
 
 	def payload(self, **kwargs):
-		cardboard = self.spawn_tree(
-			CreateZoneable,
-			target = Cardboard(
-				session = self._session,
-				card_type = self.card_type,
-				event = self,
-				origin_zone= self.to if isinstance(self.to.owner, Pile) else None,
-				face_up = self.to.facing_mode != ZoneFacingMode.FACE_DOWN,
-			)
-		) #type: t.Optional[Cardboard]
+		cardboard = Cardboard(
+			session = self._session,
+			card_type = self.card_type,
+			event = self,
+			origin_zone= self.to if isinstance(self.to.owner, Pile) else None,
+			face_up = self.to.facing_mode != ZoneFacingMode.FACE_DOWN,
+		)
 
-		if cardboard is None:
-			raise EventResolutionException()
-
-		if self.to.facing_mode == ZoneFacingMode.STACK and len(self.to) >= 2 and self.to[-1] == cardboard:
-			self.spawn_tree(TurnCardboard, face_up=False, target=self.to[-2], frm=self.to)
-
-		if cardboard.zone.ordered:
+		if self.to.ordered:
 			cardboard.id_map = {
 				player: self._session.id_provider.get_id()
 				for player in
@@ -122,6 +129,17 @@ class CreateCardboard(GameEvent):
 				for player in
 				cardboard.id_map
 			}
+
+		cardboard = self.spawn_tree(
+			CreateZoneable,
+			target = cardboard
+		) #type: t.Optional[Cardboard]
+
+		if cardboard is None:
+			raise EventResolutionException()
+
+		if self.to.facing_mode == ZoneFacingMode.STACK and len(self.to) >= 2 and self.to[-1] == cardboard:
+			self.spawn_tree(TurnCardboard, face_up=False, target=self.to[-2], frm=self.to)
 
 
 class MoveZoneable(GameEvent):
@@ -256,7 +274,8 @@ class MoveCardboard(GameEvent):
 
 	def payload(self, **kwargs):
 		previous_visibility = {player: self.target.visible(player) for player in self.target.id_map}
-		cardboard = self.depend_tree(MoveZoneable) #type: Cardboard
+		cardboard = self.depend_tree(MoveZoneable) #type: t.Optional[Cardboard]
+
 		if self.face_up is not None:
 			self.spawn_tree(TurnCardboard)
 		else:
@@ -266,8 +285,9 @@ class MoveCardboard(GameEvent):
 				self.spawn_tree(TurnCardboard, face_up=True, frm=self.to)
 			elif self.to.facing_mode == ZoneFacingMode.FACE_DOWN:
 				self.spawn_tree(TurnCardboard, face_up=False, frm=self.to)
-			if self.frm.facing_mode == ZoneFacingMode.STACK and self.frm:
+			elif self.frm.facing_mode == ZoneFacingMode.STACK and self.frm:
 				self.spawn_tree(TurnCardboard, target = self.frm[-1], face_up = True, frm=self.to)
+
 		if self.frm.ordered == False and self.to.ordered == True:
 			for player in cardboard.id_map:
 				if not cardboard.visible(player):
@@ -276,6 +296,7 @@ class MoveCardboard(GameEvent):
 			for player in cardboard.id_map:
 				if not previous_visibility[player]:
 					cardboard.id_map[player] = self._session.id_provider.get_id()
+
 		return cardboard
 
 
@@ -469,14 +490,6 @@ class Setup(GameEvent):
 	def info(self) -> SetupInfo:
 		return self._values['info']
 
-	# @property
-	# def seed(self) -> t.Optional[t.ByteString]:
-	# 	return self._values['seed']
-	#
-	# @seed.setter
-	# def seed(self, value: t.Optional[t.ByteString]):
-	# 	self._values['seed'] = value
-
 	@property
 	def basic_supply(self) -> t.Dict[str, t.Type[Pile]]:
 		return self._values['basic_supply']
@@ -531,7 +544,7 @@ class Setup(GameEvent):
 			for _ in range(self.info.num_players)
 		)
 
-		self.game.interface.bind_players(self.game.players)
+		self.game.interface.bind_players(list(self.game.players))
 
 		for key, value in self.basic_supply.items():
 			self.spawn_tree(CreatePile, pile_type=value)

@@ -10,7 +10,7 @@ from eventtree.replaceevent import Condition, Event
 
 from throneloon.game.artifacts.artifact import GameArtifact, GameObject, IdSession
 from throneloon.game.artifacts.mats import Mat
-from throneloon.game.artifacts.observation import GameObserver
+from throneloon.game.artifacts.observation import GameObserver, serialization_values
 from throneloon.game.artifacts.zones import Zone, ZoneOwner, ZoneFacingMode, Zoneable
 from throneloon.game.artifacts.cards import Cardboard
 from throneloon.game.artifacts.tokens import Token
@@ -19,7 +19,11 @@ from throneloon.game.artifacts.deck import Deck
 from throneloon.game.values.currency import CurrencyValue
 from throneloon.io.interface import IOInterface, io_options, io_option
 
+from throneloon.utils.containers.frozendict import FrozenDict
+
+
 picking_options = t.Union[Zone, t.Iterable[str], t.Callable[[], io_options]]
+
 
 class AdditionalOption(object):
 
@@ -209,7 +213,11 @@ class Player(GameObject, ZoneOwner, GameObserver):
 			ordered = True,
 		) #type: Zone[State]
 
-		self.peeking = [] #type: t.List[Zoneable]
+		self._peeking = [] #type: t.List[Zoneable]
+
+	@property
+	def peeking(self) -> t.List[GameArtifact]:
+		return self._peeking
 
 	@property
 	def zones(self) -> 't.Set[Zone]':
@@ -322,8 +330,12 @@ class Player(GameObject, ZoneOwner, GameObserver):
 	def has_additional_options(self) -> bool:
 		return self._picker.additional_options_pending()
 
-	def serialize(self, observer: GameObserver) -> str:
-		return super().serialize(observer)
+	def serialize(self, player: GameObserver) -> serialization_values:
+		return super().serialize(player) + FrozenDict(
+			{
+				'id': self._id,
+			}
+		)
 
 	def __repr__(self) -> str:
 		return '{}({})'.format(
