@@ -1,6 +1,7 @@
 import typing as t
 
-from throneloon.utils.containers.ring import Ring
+from ring import Ring
+
 from throneloon.game.artifacts.players import Player
 
 

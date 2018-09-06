@@ -11,13 +11,21 @@ def package_files(directory):
 extra_files = package_files('throneloon')
 
 setup(
-	name='throneloon',
-	version='1.0',
-	packages=['throneloon'],
-	package_data={'': extra_files},
-	install_requires=[
+	name = 'throneloon',
+	version = '1.0',
+	packages = ['throneloon'],
+	package_data = {'': extra_files},
+	dependency_links = [
+		'https://github.com/guldfisk/eventdispatch/tarball/master#egg=eventdispatch-1.0',
+		'https://github.com/guldfisk/eventtree/tarball/master#egg=eventtree-1.0',
+		'https://github.com/guldfisk/ring/tarball/master#egg=ring-1.0',
+	],
+	install_requires = [
 		'frozendict',
 		'weakreflist',
-		'ordered_set'
+		'ordered_set',
+		'eventdispatch',
+		'eventtree',
+		'ring',
 	]
 )
